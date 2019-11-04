@@ -1,0 +1,25 @@
+{
+	"license": "MIT",
+	"dependencies": {},
+	"devDependencies": {
+		"@types/node": "^12.12.5",
+		"rxjs": "^5.5.12",
+		"rxjs-tslint-rules": "^4.26.1",
+		"tslint": "^5.20.0",
+		"typescript": "^3.6.4"
+	},
+	"contributors": [
+		{
+			"name": "Marc Lavergne",
+			"email": "mlavergn@gmail.com",
+			"url": "https://github.com/mlavergn"
+		}
+	],
+	"name": "xmlhttprequest-node",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/mlavergn/httpclient-node.git"
+	},
+	"title": "Lightweight TypeScript HttpClient Angular adapter for NodeJS",
+	"version": "1.0.0"
+}
