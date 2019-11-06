@@ -53,7 +53,6 @@ export class Test {
 
   static isMd5(name: string, buffer: Buffer, expectedHash: string, ...addtl: string[]) {
     const hash = nodecrypto.createHash('md5').update(buffer).digest('hex');
-    console.log('hash', hash, 'exptected', expectedHash);
     Test.isTrue(name, hash === expectedHash, ...addtl);
   }
 

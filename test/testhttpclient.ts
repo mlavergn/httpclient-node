@@ -88,11 +88,9 @@ export class HttpClientTests {
     };
     const http$ = HttpClient.get('https://upload.wikimedia.org/wikipedia/en/4/4e/Steamboat-willie.jpg', options);
     http$.subscribe(
-      (response: HttpClientResponse) => {
+      (response: Buffer) => {
         Test.rxnext('HttpClient::testBlob');
-        Test.isTrue('HttpClient::testBlob status', response.statusCode === 200);
-        const buffer = response.body;
-        Test.isMd5('HttpClient::testBlob read', buffer, 'ec5997c748d28d59941ccb3c51462e29');
+        Test.isMd5('HttpClient::testBlob read', response, 'ec5997c748d28d59941ccb3c51462e29');
       },
       (error) => {
         Test.rxerror('HttpClient::testBlob', error);
@@ -118,7 +116,6 @@ export class HttpClientTests {
     http$.subscribe(
       (response: HttpClientResponse) => {
         Test.rxnext('HttpClient::testStreamBlob');
-        console.log('HttpClient::testStreamBlob', response.statusCode);
         Test.isTrue('HttpClient::testStreamBlob status', response.statusCode === 200);
         (<Transform>response.body).on('data', (data: Buffer) => {
           Test.isTrue('HttpClient::testStreamBlob read', data.byteLength > 0);

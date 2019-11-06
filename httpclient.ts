@@ -137,113 +137,122 @@ export class HttpClientResponse implements HttpClientResponseProtocol {
 export class HttpClient {
   // tslint:disable-next-line: rxjs-finnish
   public static get(url: string, options?: HttpClientOptionsProtocol, jwt$?: Observable<string>):
-    Observable<HttpClientResponse> {
+    Observable<HttpClientResponse | Buffer> {
     const httpOptions: HttpClientOptionsProtocol = options ? options : { responseType: HttpClientResponseType.arraybuffer };
     return HttpClient.request$(NodeRequestMethod.get, url, undefined, httpOptions);
   }
 
   // tslint:disable-next-line: rxjs-finnish
   public static post(url: string, body: string | object | null, options?: HttpClientOptionsProtocol, jwt$?: Observable<string>):
-    Observable<HttpClientResponse> {
+    Observable<HttpClientResponse | Buffer> {
     const httpOptions: HttpClientOptionsProtocol = options ? options : { responseType: HttpClientResponseType.arraybuffer };
     return HttpClient.request$(NodeRequestMethod.post, url, body, httpOptions);
   }
 
   public static request$(method: NodeRequestMethod, url: string, body: any, options: HttpClientOptionsProtocol):
-    Observable<HttpClientResponse> {
+    Observable<HttpClientResponse | Buffer> {
     const nodeOptions: RequestOptions = URLParse(url);
     nodeOptions.method = method;
 
     // map options
-    nodeOptions.headers = options.headers;
-    nodeOptions.timeout = options.timeout;
+    nodeOptions.headers = options.headers ? options.headers : {};
+    nodeOptions.timeout = options.timeout ? options.timeout : 0;
     // @ts-ignore
     nodeOptions.rejectUnauthorized = false;
 
     // setup the observable and client
-    const observer$ = new Subject<HttpClientResponse>();
+    const observer$ = new Subject<HttpClientResponse | Buffer>();
     const client = (nodeOptions.protocol === NodeRequestProtocol.http) ? HTTP : HTTPS;
 
     // perform the request
-    const nodeRequest: ClientRequest = client(nodeOptions, (nodeResponse: IncomingMessage) => {
-      const clientResponse = new HttpClientResponse();
-      clientResponse.statusCode = nodeResponse.statusCode ? nodeResponse.statusCode : 501;
-      clientResponse.statusText = nodeResponse.statusMessage ? nodeResponse.statusMessage : '';
+    try {
+      const nodeRequest: ClientRequest = client(nodeOptions, (nodeResponse: IncomingMessage) => {
+        const clientResponse = new HttpClientResponse();
+        clientResponse.statusCode = nodeResponse.statusCode ? nodeResponse.statusCode : 501;
+        clientResponse.statusText = nodeResponse.statusMessage ? nodeResponse.statusMessage : '';
 
-      let responseBuffer = Buffer.allocUnsafe(0);
-      let responseStream: Transform;
+        let responseBuffer = Buffer.allocUnsafe(0);
+        let responseStream: Transform;
 
-      // stream response
-      if (options.responseType === HttpClientResponseType.stream) {
-        responseStream = new Transform({
-          transform(chunk, encoding, callback) {
-            responseStream.push(chunk);
-            callback();
+        // stream response
+        if (options.responseType === HttpClientResponseType.stream) {
+          responseStream = new Transform({
+            transform(chunk, encoding, callback) {
+              responseStream.push(chunk);
+              callback();
+            }
+          });
+          clientResponse.body = responseStream;
+        }
+
+        // request events
+        nodeRequest.on(NodeRequestEvent.error, (error) => {
+          observer$.error(clientResponse);
+        });
+
+        nodeRequest.on(NodeRequestEvent.timeout, () => {
+          observer$.error(clientResponse);
+          nodeRequest.abort();
+        });
+
+        // response events
+        nodeResponse.on(NodeRequestEvent.data, (chunk: Buffer) => {
+          if (options.responseType !== HttpClientResponseType.stream) {
+            responseBuffer = Buffer.concat([responseBuffer, chunk]);
+            if (options.reportProgress) {
+              clientResponse.partialText = responseBuffer.toString();
+              observer$.next(clientResponse);
+            }
+          } else {
+            responseStream.write(chunk);
+            observer$.next(clientResponse);
+            // NOTE: using pipe instead of write results in
+            // the handler closing the response on EOF breaking
+            // event handling
+            // nodeResponse.pipe(this.response, { end: false });
           }
         });
-        clientResponse.body = responseStream;
-      }
 
-      nodeResponse.on(NodeRequestEvent.data, (chunk: Buffer) => {
-        if (options.responseType !== HttpClientResponseType.stream) {
-          responseBuffer = Buffer.concat([responseBuffer, chunk]);
-          if (options.reportProgress) {
-            clientResponse.partialText = responseBuffer.toString();
-            observer$.next(clientResponse);
+        nodeResponse.on(NodeRequestEvent.end, () => {
+          switch (options.responseType) {
+            case HttpClientResponseType.json:
+              const responseText = responseBuffer.toString();
+              clientResponse.body = <Object>JSON.parse(responseText);
+              break;
+            case HttpClientResponseType.arraybuffer:
+            case HttpClientResponseType.blob:
+              observer$.next(responseBuffer);
+              break;
+            case HttpClientResponseType.document:
+            case HttpClientResponseType.text:
+              clientResponse.body = responseBuffer.toString();
+              observer$.next(clientResponse);
+              break;
+            default:
+              observer$.next(clientResponse);
           }
+
+          observer$.complete();
+        });
+      });
+
+      if (body) {
+        if (body instanceof Transform) {
+          body.pipe(nodeRequest);
+          return observer$;
+        } else if (body instanceof ArrayBuffer) {
+          nodeRequest.write(body);
+        } else if (typeof body === 'object') {
+          nodeRequest.write(JSON.stringify(body));
         } else {
-          responseStream.write(chunk);
-          observer$.next(clientResponse);
-          // NOTE: using pipe instead of write results in
-          // the handler closing the response on EOF breaking
-          // event handling
-          // nodeResponse.pipe(this.response, { end: false });
+          nodeRequest.write(String(body));
         }
-      });
-
-      nodeResponse.on(NodeRequestEvent.error, (error) => {
-        observer$.error(clientResponse);
-      });
-
-      nodeResponse.on(NodeRequestEvent.timeout, () => {
-        observer$.error(clientResponse);
-      });
-
-      nodeResponse.on(NodeRequestEvent.end, () => {
-        switch (options.responseType) {
-          case HttpClientResponseType.json:
-            const responseText = responseBuffer.toString();
-            clientResponse.body = <Object>JSON.parse(responseText);
-            break;
-          case HttpClientResponseType.arraybuffer:
-          case HttpClientResponseType.blob:
-            clientResponse.body = responseBuffer;
-            break;
-          case HttpClientResponseType.document:
-          case HttpClientResponseType.text:
-            clientResponse.body = responseBuffer.toString();
-            break;
-        }
-
-        observer$.next(clientResponse);
-        observer$.complete();
-      });
-    });
-
-    if (body) {
-      if (body instanceof Transform) {
-        body.pipe(nodeRequest);
-        return observer$;
-      } else if (body instanceof ArrayBuffer) {
-        nodeRequest.write(body);
-      } else if (typeof body === 'object') {
-        nodeRequest.write(JSON.stringify(body));
-      } else {
-        nodeRequest.write(String(body));
       }
-    }
 
-    nodeRequest.end();
+      nodeRequest.end();
+    } catch (exception) {
+      observer$.error(String(exception));
+    }
 
     return observer$;
   }
