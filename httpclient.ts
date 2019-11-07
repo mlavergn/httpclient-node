@@ -51,11 +51,9 @@ export interface HttpClientResponseProtocol {
 
 export interface HttpClientProtocol {
   // tslint:disable-next-line: rxjs-finnish
-  get(url: string, options: HttpClientOptionsProtocol, jwt$?: Observable<string>):
-    Observable<HttpClientResponseProtocol>;
+  get<T = HttpClientResponseProtocol>(url: string, options: HttpClientOptionsProtocol): Observable<T>;
   // tslint:disable-next-line: rxjs-finnish
-  post(url: string, body: string | object | null, options: HttpClientOptionsProtocol, jwt$?: Observable<string>):
-    Observable<HttpClientResponseProtocol>;
+  post<T = HttpClientResponseProtocol>(url: string, body: string | object | null, options: HttpClientOptionsProtocol): Observable<T>;
 }
 
 /**
