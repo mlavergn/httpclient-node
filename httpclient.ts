@@ -136,21 +136,21 @@ export class HttpClientResponse implements HttpClientResponseProtocol {
  */
 export class HttpClient {
   // tslint:disable-next-line: rxjs-finnish
-  public static get(url: string, options?: HttpClientOptionsProtocol, jwt$?: Observable<string>):
-    Observable<HttpClientResponse | Buffer> {
+  public static get<T = HttpClientResponseProtocol>(url: string, options: HttpClientOptionsProtocol):
+    Observable<T> {
     const httpOptions: HttpClientOptionsProtocol = options ? options : { responseType: HttpClientResponseType.arraybuffer };
-    return HttpClient.request$(NodeRequestMethod.get, url, undefined, httpOptions);
+    return HttpClient.request$<T>(NodeRequestMethod.get, url, undefined, httpOptions);
   }
 
   // tslint:disable-next-line: rxjs-finnish
-  public static post(url: string, body: string | object | null, options?: HttpClientOptionsProtocol, jwt$?: Observable<string>):
-    Observable<HttpClientResponse | Buffer> {
+  public static post<T = HttpClientResponseProtocol>(url: string, body: string | object | null, options: HttpClientOptionsProtocol):
+    Observable<T> {
     const httpOptions: HttpClientOptionsProtocol = options ? options : { responseType: HttpClientResponseType.arraybuffer };
-    return HttpClient.request$(NodeRequestMethod.post, url, body, httpOptions);
+    return HttpClient.request$<T>(NodeRequestMethod.post, url, body, httpOptions);
   }
 
-  public static request$(method: NodeRequestMethod, url: string, body: any, options: HttpClientOptionsProtocol):
-    Observable<HttpClientResponse | Buffer> {
+  private static request$<T>(method: NodeRequestMethod, url: string, body: any, options: HttpClientOptionsProtocol):
+    Observable<T> {
     const nodeOptions: RequestOptions = URLParse(url);
     nodeOptions.method = method;
 
@@ -161,7 +161,7 @@ export class HttpClient {
     nodeOptions.rejectUnauthorized = false;
 
     // setup the observable and client
-    const observer$ = new Subject<HttpClientResponse | Buffer>();
+    const observer$: Subject<any> = new Subject<T>();
     const client = (nodeOptions.protocol === NodeRequestProtocol.http) ? HTTP : HTTPS;
 
     // perform the request

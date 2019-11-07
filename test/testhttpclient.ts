@@ -4,7 +4,6 @@ import { HttpClient, HttpClientOptionsProtocol, HttpClientResponse } from '../ht
 
 import { Transform } from 'stream';
 
-import { Subscriber } from 'rxjs/Subscriber';
 import { interval } from 'rxjs/observable/interval';
 import 'rxjs/add/operator/take';
 
@@ -86,7 +85,7 @@ export class HttpClientTests {
       headers: {},
       responseType: 'blob',
     };
-    const http$ = HttpClient.get('https://upload.wikimedia.org/wikipedia/en/4/4e/Steamboat-willie.jpg', options);
+    const http$ = HttpClient.get<Buffer>('https://upload.wikimedia.org/wikipedia/en/4/4e/Steamboat-willie.jpg', options);
     http$.subscribe(
       (response: Buffer) => {
         Test.rxnext('HttpClient::testBlob');
