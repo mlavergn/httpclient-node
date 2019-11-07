@@ -216,6 +216,7 @@ export class HttpClient {
             case HttpClientResponseType.json:
               const responseText = responseBuffer.toString();
               clientResponse.body = <Object>JSON.parse(responseText);
+              observer$.next(clientResponse);
               break;
             case HttpClientResponseType.arraybuffer:
             case HttpClientResponseType.blob:
